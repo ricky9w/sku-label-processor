@@ -1,103 +1,256 @@
-import Image from "next/image";
+// File: app/page.tsx
+'use client';
 
-export default function Home() {
+import React, { useState } from "react";
+import { PDFDocument, rgb, PDFFont } from "pdf-lib";
+import fontkit from '@pdf-lib/fontkit';
+import { Upload, FileText, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+const createHeaderPage = (
+  pdfDoc: PDFDocument,
+  { width, height }: { width: number; height: number },
+  font: PDFFont,
+  data: { productName: string; asin: string; totalQuantity: number }
+) => {
+  const page = pdfDoc.addPage([width, height]);
+  const { productName, asin, totalQuantity } = data;
+
+  const leftMargin = 15;
+  const rightMargin = 15;
+  const maxWidth = width - leftMargin - rightMargin;
+  let y = height - 25;
+
+  page.drawText("商品:", { x: leftMargin, y, font, size: 5 });
+  y -= 6;
+
+  const words = productName.split(' ');
+  let lines = [];
+  let currentLine = '';
+  for (const word of words) {
+    const testLine = currentLine === '' ? word : `${currentLine} ${word}`;
+    const textWidth = font.widthOfTextAtSize(testLine, 9);
+    if (textWidth > maxWidth && currentLine !== '') {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  lines.push(currentLine);
+
+  if (lines.length > 2) {
+    lines = lines.slice(0, 2);
+    lines[1] = `${lines[1].slice(0, Math.floor(maxWidth/5))}...`;
+  }
+
+  for (const line of lines) {
+    page.drawText(line, { x: leftMargin, y, font, size: 5 });
+    y -= 6;
+  }
+  y -= 6;
+
+  page.drawText(`ASIN:`, { x: leftMargin, y, font, size: 5 });
+  page.drawText(asin, { x: leftMargin + 40, y, font, size: 5 });
+  y -= 6;
+
+  page.drawText(`数量:`, { x: leftMargin, y, font, size: 5 });
+  page.drawText(`${totalQuantity} pcs`, { x: leftMargin + 40, y, font, size: 5 });
+};
+
+
+const SkuLabelGenerator = () => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [processing, setProcessing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [error, setError] = useState<string>('');
+
+  const [productName, setProductName] = useState('测试商品名称，这是一个比较长的标题，需要换行');
+  const [asin, setAsin] = useState('B012345678');
+  const [totalQuantity, setTotalQuantity] = useState<number | ''>(125);
+  const [dividerInterval, setDividerInterval] = useState<number | ''>(50);
+
+  const handleGenerate = async () => {
+    if (!selectedFile || !totalQuantity) {
+      setError("请确保已选择模板文件并填写了打印总数。");
+      return;
+    }
+    setError('');
+    setProcessing(true);
+    setProgress(0);
+
+    try {
+      const fontBytes = await fetch("/fonts/NotoSansSC-Regular.ttf").then(res => res.arrayBuffer());
+      const arrayBuffer = await selectedFile.arrayBuffer();
+
+      const sourcePdfDoc = await PDFDocument.load(arrayBuffer);
+      const newPdfDoc = await PDFDocument.create();
+
+      newPdfDoc.registerFontkit(fontkit);
+
+      const customFont = await newPdfDoc.embedFont(fontBytes);
+
+      const sourceTemplatePage = sourcePdfDoc.getPages()[0];
+      const embeddedTemplatePage = await newPdfDoc.embedPage(sourceTemplatePage);
+      const { width, height } = embeddedTemplatePage;
+
+      if (productName || asin) {
+        createHeaderPage(newPdfDoc, { width, height }, customFont, { productName, asin, totalQuantity });
+      }
+
+      for (let i = 1; i <= totalQuantity; i++) {
+        if (dividerInterval && i > 1 && (i - 1) % dividerInterval === 0) {
+           const dividerPage = newPdfDoc.addPage([width, height]);
+           const dividerText = `Count: ${i - 1}`;
+           const asinText = `ASIN: ${asin}`;
+           dividerPage.drawText(dividerText, { x: (width - customFont.widthOfTextAtSize(dividerText, 18)) / 2, y: height / 2 + 20, font: customFont, size: 18 });
+           dividerPage.drawText(asinText, { x: (width - customFont.widthOfTextAtSize(asinText, 12)) / 2, y: height / 2 - 10, font: customFont, size: 12 });
+        }
+
+        const page = newPdfDoc.addPage([width, height]);
+        page.drawPage(embeddedTemplatePage);
+
+        const originText = "Made In China";
+        const originTextWidth = customFont.widthOfTextAtSize(originText, 6);
+        page.drawText(originText, { x: (width - originTextWidth) / 2, y: 10, size: 6, font: customFont, color: rgb(0, 0, 0) });
+        
+        setProgress(Math.floor((i / totalQuantity) * 95));
+      }
+
+      if (totalQuantity > 0) {
+        const finalCountPage = newPdfDoc.addPage([width, height]);
+        const finalText = `Total Count: ${totalQuantity}`;
+        const asinText = `ASIN: ${asin}`;
+        finalCountPage.drawText(finalText, { x: (width - customFont.widthOfTextAtSize(finalText, 18)) / 2, y: height / 2 + 20, font: customFont, size: 18 });
+        finalCountPage.drawText(asinText, { x: (width - customFont.widthOfTextAtSize(asinText, 12)) / 2, y: height / 2 - 10, font: customFont, size: 12 });
+      }
+
+      setProgress(100);
+      const pdfBytes = await newPdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeFileName = asin.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'labels';
+      link.download = `${safeFileName}_${totalQuantity}pcs_processed.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+    } catch (e) {
+      console.error(e);
+      setError(`处理PDF时出错: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setProcessing(false);
+      setTimeout(() => { if (!error) setProgress(0); }, 2000);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(false); };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type === 'application/pdf') { setSelectedFile(file); setError(''); }
+    else { setError("请拖入一个有效的 PDF 文件。"); setSelectedFile(null); }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') { setSelectedFile(file); setError(''); }
+    else { setError("请选择一个有效的 PDF 文件。"); setSelectedFile(null); }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+      <Card className="w-full max-w-lg">
+        <CardHeader>
+          <CardTitle>SKU 标签生成与处理器</CardTitle>
+          <CardDescription>从 SKU 模板生成带计数分隔页的完整标签 PDF</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="product-name">商品名称</Label>
+                <Input id="product-name" placeholder="例如: 硅胶手机壳" value={productName} onChange={(e) => setProductName(e.target.value)} disabled={processing} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="asin">ASIN</Label>
+                <Input id="asin" placeholder="例如: B08XXXXXXX" value={asin} onChange={(e) => setAsin(e.target.value)} disabled={processing}/>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="total-quantity">打印总数 (必填)</Label>
+              <Input id="total-quantity" type="number" placeholder="例如: 500" value={totalQuantity} onChange={(e) => setTotalQuantity(e.target.value === '' ? '' : Number(e.target.value))} required disabled={processing}/>
+            </div>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1">
+                <AccordionTrigger>高级选项: 设置分隔页</AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-2">
+                    <Label htmlFor="divider-interval">每隔多少个标签插入一张分隔页?</Label>
+                    <Input id="divider-interval" type="number" placeholder="例如: 50 (表示每50个标签后插入)" value={dividerInterval} onChange={(e) => setDividerInterval(e.target.value === '' ? '' : Number(e.target.value))} disabled={processing}/>
+                    <p className="text-xs text-muted-foreground">留空则不插入分隔页。</p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+          
+          <div>
+            <Label>SKU 模板 (PDF)</Label>
+            <div
+              className={`mt-1 border-2 border-dashed rounded-lg p-6 text-center transition-colors ${ isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300' }`}
+              onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
+            >
+              <input type="file" id="file-upload" className="hidden" accept=".pdf" onChange={handleFileSelect} />
+              {!selectedFile ? (
+                <div className="flex flex-col items-center justify-center">
+                  <Upload className="w-10 h-10 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600 mb-2">拖拽单个 PDF 文件到这里, 或</p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById('file-upload')?.click()} disabled={processing}>选择文件</Button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-sm">
+                  <FileText className="w-10 h-10 text-green-600 mb-2" />
+                  <p className="font-medium">{selectedFile.name}</p>
+                  <Button type="button" variant="link" size="sm" className="text-red-500 hover:text-red-700" onClick={() => setSelectedFile(null)} disabled={processing}>移除文件</Button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {error && (<div className="flex items-center p-2 text-sm text-destructive bg-destructive/10 rounded-md"><XCircle className="w-4 h-4 mr-2"/><p>{error}</p></div>)}
+            {processing && progress === 100 && !error && (<div className="flex items-center p-2 text-sm text-green-700 bg-green-500/10 rounded-md"><CheckCircle2 className="w-4 h-4 mr-2"/><p>处理完成！下载已开始。</p></div>)}
+            <Button onClick={handleGenerate} disabled={!selectedFile || !totalQuantity || processing} className="w-full">{processing ? '正在生成中...' : '生成标签'}</Button>
+            {processing && (<div className="mt-2"><Progress value={progress} className="w-full" /><p className="text-sm text-gray-500 mt-1 text-center">{progress}%</p></div>)}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-}
+};
+
+export default SkuLabelGenerator;

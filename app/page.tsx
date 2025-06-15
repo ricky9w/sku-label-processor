@@ -82,7 +82,7 @@ const SkuLabelGenerator = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string>('');
 
-  const [productName, setProductName] = useState('测试商品名称，这是一个比较长的标题，需要换行');
+  const [productName, setProductName] = useState('测试商品名称，这是一个比较长的标题，需要换行测试测试测试测试测试');
   const [asin, setAsin] = useState('B012345678');
   const [totalQuantity, setTotalQuantity] = useState<number | ''>(125);
   const [dividerInterval, setDividerInterval] = useState<number | ''>(50);

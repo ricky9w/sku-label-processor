@@ -13,6 +13,5 @@ function Label({
   VariantProps<typeof labelVariants>) {
   return <LabelPrimitive.Root className={cn(labelVariants(), className)} {...props} />
 }
-Label.displayName = LabelPrimitive.Root.displayName
 
 export { Label }

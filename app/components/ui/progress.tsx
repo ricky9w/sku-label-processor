@@ -23,6 +23,5 @@ function Progress({
     </ProgressPrimitive.Root>
   )
 }
-Progress.displayName = ProgressPrimitive.Root.displayName
 
 export { Progress }

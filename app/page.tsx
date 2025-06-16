@@ -23,6 +23,9 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const HEADER_FONT_SIZE = 5;
+const HEADER_LINE_SPACING = 8;
+
 const createHeaderPage = (
   pdfDoc: PDFDocument,
   { width, height }: { width: number; height: number },
@@ -37,18 +40,19 @@ const createHeaderPage = (
   const maxWidth = width - leftMargin - rightMargin;
   let y = height - 25;
 
-  page.drawText("商品:", { x: leftMargin, y, font, size: 5 });
-  y -= 6;
+  page.drawText("商品:", { x: leftMargin, y, font, size: HEADER_FONT_SIZE });
+  y -= HEADER_LINE_SPACING;
 
-  const words = productName.split(' ');
   let lines = [];
   let currentLine = '';
-  for (const word of words) {
-    const testLine = currentLine === '' ? word : `${currentLine} ${word}`;
-    const textWidth = font.widthOfTextAtSize(testLine, 9);
-    if (textWidth > maxWidth && currentLine !== '') {
+  for (let i = 0; i < productName.length; i++) {
+    const char = productName[i];
+    const testLine = currentLine + char;
+    const textWidth = font.widthOfTextAtSize(testLine, HEADER_FONT_SIZE);
+
+    if (textWidth > maxWidth) {
       lines.push(currentLine);
-      currentLine = word;
+      currentLine = char;
     } else {
       currentLine = testLine;
     }
@@ -61,19 +65,42 @@ const createHeaderPage = (
   }
 
   for (const line of lines) {
-    page.drawText(line, { x: leftMargin, y, font, size: 5 });
-    y -= 6;
+    page.drawText(line, { x: leftMargin, y, font, size: HEADER_FONT_SIZE });
+    y -= HEADER_LINE_SPACING;
   }
-  y -= 6;
 
-  page.drawText(`ASIN:`, { x: leftMargin, y, font, size: 5 });
-  page.drawText(asin, { x: leftMargin + 40, y, font, size: 5 });
-  y -= 6;
+  page.drawText(`ASIN:`, { x: leftMargin, y, font, size: HEADER_FONT_SIZE });
+  page.drawText(asin, { x: leftMargin + 15, y, font, size: HEADER_FONT_SIZE });
+  y -= HEADER_LINE_SPACING;
 
-  page.drawText(`数量:`, { x: leftMargin, y, font, size: 5 });
-  page.drawText(`${totalQuantity} pcs`, { x: leftMargin + 40, y, font, size: 5 });
+  page.drawText(`数量:`, { x: leftMargin, y, font, size: HEADER_FONT_SIZE });
+  page.drawText(`${totalQuantity} pcs`, { x: leftMargin + 15, y, font, size: HEADER_FONT_SIZE });
 };
 
+
+const createCountPage = (
+  pdfDoc: PDFDocument,
+  { width, height }: { width: number; height: number },
+  font: PDFFont,
+  { mainText, subText }: { mainText: string; subText: string }
+) => {
+  const page = pdfDoc.addPage([width, height]);
+  const leftMargin = 25;
+  
+  page.drawText(mainText, {
+    x: leftMargin,
+    y: height / 2 + 10,
+    font: font,
+    size: HEADER_FONT_SIZE + 2,
+  });
+
+  page.drawText(subText, {
+    x: leftMargin,
+    y: height / 2 - 10,
+    font: font,
+    size: HEADER_FONT_SIZE + 2,
+  });
+};
 
 const SkuLabelGenerator = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -83,7 +110,7 @@ const SkuLabelGenerator = () => {
   const [error, setError] = useState<string>('');
 
   const [productName, setProductName] = useState('测试商品名称，这是一个比较长的标题，需要换行测试测试测试测试测试');
-  const [asin, setAsin] = useState('B012345678');
+  const [asin, setAsin] = useState('B012345678'.normalize('NFKC'));
   const [totalQuantity, setTotalQuantity] = useState<number | ''>(125);
   const [dividerInterval, setDividerInterval] = useState<number | ''>(50);
 
@@ -97,7 +124,7 @@ const SkuLabelGenerator = () => {
     setProgress(0);
 
     try {
-      const fontBytes = await fetch("/fonts/NotoSansSC-Regular.ttf").then(res => res.arrayBuffer());
+      const fontBytes = await fetch("/fonts/AlibabaPuHuiTi-Regular.ttf").then(res => res.arrayBuffer());
       const arrayBuffer = await selectedFile.arrayBuffer();
 
       const sourcePdfDoc = await PDFDocument.load(arrayBuffer);
@@ -117,11 +144,10 @@ const SkuLabelGenerator = () => {
 
       for (let i = 1; i <= totalQuantity; i++) {
         if (dividerInterval && i > 1 && (i - 1) % dividerInterval === 0) {
-           const dividerPage = newPdfDoc.addPage([width, height]);
-           const dividerText = `Count: ${i - 1}`;
-           const asinText = `ASIN: ${asin}`;
-           dividerPage.drawText(dividerText, { x: (width - customFont.widthOfTextAtSize(dividerText, 18)) / 2, y: height / 2 + 20, font: customFont, size: 18 });
-           dividerPage.drawText(asinText, { x: (width - customFont.widthOfTextAtSize(asinText, 12)) / 2, y: height / 2 - 10, font: customFont, size: 12 });
+           createCountPage(newPdfDoc, { width, height }, customFont, {
+            mainText: `Count: ${i - 1}`,
+            subText: `ASIN: ${asin}`,
+           });
         }
 
         const page = newPdfDoc.addPage([width, height]);
@@ -135,11 +161,10 @@ const SkuLabelGenerator = () => {
       }
 
       if (totalQuantity > 0) {
-        const finalCountPage = newPdfDoc.addPage([width, height]);
-        const finalText = `Total Count: ${totalQuantity}`;
-        const asinText = `ASIN: ${asin}`;
-        finalCountPage.drawText(finalText, { x: (width - customFont.widthOfTextAtSize(finalText, 18)) / 2, y: height / 2 + 20, font: customFont, size: 18 });
-        finalCountPage.drawText(asinText, { x: (width - customFont.widthOfTextAtSize(asinText, 12)) / 2, y: height / 2 - 10, font: customFont, size: 12 });
+        createCountPage(newPdfDoc, { width, height }, customFont, {
+          mainText: `Total Count: ${totalQuantity}`,
+          subText: `ASIN: ${asin}`,
+        });
       }
 
       setProgress(100);
@@ -197,7 +222,7 @@ const SkuLabelGenerator = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="asin">ASIN</Label>
-                <Input id="asin" placeholder="例如: B08XXXXXXX" value={asin} onChange={(e) => setAsin(e.target.value)} disabled={processing}/>
+                <Input id="asin" placeholder="例如: B08XXXXXXX" value={asin} onChange={(e) => setAsin(e.target.value.normalize('NFKC'))} disabled={processing}/>
               </div>
             </div>
             <div className="space-y-2">

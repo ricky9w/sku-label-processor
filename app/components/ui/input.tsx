@@ -15,6 +15,5 @@ function Input({ className, type, ...props }: InputProps) {
     />
   )
 }
-Input.displayName = "Input"
 
 export { Input }

@@ -9,7 +9,6 @@ const Accordion = AccordionPrimitive.Root
 function AccordionItem({ className, ...props }: React.ComponentProps<typeof AccordionPrimitive.Item>) {
   return <AccordionPrimitive.Item className={cn("border-b", className)} {...props} />
 }
-AccordionItem.displayName = "AccordionItem"
 
 function AccordionTrigger({ className, children, ...props }: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
   return (
@@ -27,7 +26,6 @@ function AccordionTrigger({ className, children, ...props }: React.ComponentProp
     </AccordionPrimitive.Header>
   )
 }
-AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName
 
 function AccordionContent({ className, children, ...props }: React.ComponentProps<typeof AccordionPrimitive.Content>) {
   return (
@@ -39,6 +37,5 @@ function AccordionContent({ className, children, ...props }: React.ComponentProp
     </AccordionPrimitive.Content>
   )
 }
-AccordionContent.displayName = AccordionPrimitive.Content.displayName
 
 export { Accordion, AccordionItem, AccordionTrigger, AccordionContent }

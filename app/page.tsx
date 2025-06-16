@@ -109,7 +109,7 @@ const SkuLabelGenerator = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string>('');
 
-  const [productName, setProductName] = useState('测试商品名称，这是一个比较长的标题，需要换行测试测试测试测试测试');
+  const [productName, setProductName] = useState('测试商品名称');
   const [asin, setAsin] = useState('B012345678'.normalize('NFKC'));
   const [totalQuantity, setTotalQuantity] = useState<number | ''>(125);
   const [dividerInterval, setDividerInterval] = useState<number | ''>(50);
@@ -174,7 +174,7 @@ const SkuLabelGenerator = () => {
       const link = document.createElement('a');
       link.href = url;
       const safeFileName = asin.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'labels';
-      link.download = `${safeFileName}_${totalQuantity}pcs_processed.pdf`;
+      link.download = `${safeFileName.toUpperCase()}_${totalQuantity}pcs.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

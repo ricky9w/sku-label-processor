@@ -116,7 +116,7 @@ const SkuLabelGenerator = () => {
 
   const handleGenerate = async () => {
     if (!selectedFile || !totalQuantity) {
-      setError("请确保已选择模板文件并填写了打印总数。");
+      setError("请确保已选择模板文件并填写了打印总数");
       return;
     }
     setError('');
@@ -197,13 +197,13 @@ const SkuLabelGenerator = () => {
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type === 'application/pdf') { setSelectedFile(file); setError(''); }
-    else { setError("请拖入一个有效的 PDF 文件。"); setSelectedFile(null); }
+    else { setError("请拖入一个有效的 PDF 文件"); setSelectedFile(null); }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === 'application/pdf') { setSelectedFile(file); setError(''); }
-    else { setError("请选择一个有效的 PDF 文件。"); setSelectedFile(null); }
+    else { setError("请选择一个有效的 PDF 文件"); setSelectedFile(null); }
   };
 
   return (
@@ -236,7 +236,7 @@ const SkuLabelGenerator = () => {
                   <div className="space-y-2">
                     <Label htmlFor="divider-interval">每隔多少个标签插入一张分隔页?</Label>
                     <Input id="divider-interval" type="number" placeholder="例如: 50 (表示每50个标签后插入)" value={dividerInterval} onChange={(e) => setDividerInterval(e.target.value === '' ? '' : Number(e.target.value))} disabled={processing}/>
-                    <p className="text-xs text-muted-foreground">留空则不插入分隔页。</p>
+                    <p className="text-xs text-muted-foreground">留空则不插入分隔页</p>
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -268,7 +268,7 @@ const SkuLabelGenerator = () => {
           
           <div className="space-y-4">
             {error && (<div className="flex items-center p-2 text-sm text-destructive bg-destructive/10 rounded-md"><XCircle className="w-4 h-4 mr-2"/><p>{error}</p></div>)}
-            {processing && progress === 100 && !error && (<div className="flex items-center p-2 text-sm text-green-700 bg-green-500/10 rounded-md"><CheckCircle2 className="w-4 h-4 mr-2"/><p>处理完成！下载已开始。</p></div>)}
+            {processing && progress === 100 && !error && (<div className="flex items-center p-2 text-sm text-green-700 bg-green-500/10 rounded-md"><CheckCircle2 className="w-4 h-4 mr-2"/><p>处理完成！下载已开始</p></div>)}
             <Button onClick={handleGenerate} disabled={!selectedFile || !totalQuantity || processing} className="w-full">{processing ? '正在生成中...' : '生成标签'}</Button>
             {processing && (<div className="mt-2"><Progress value={progress} className="w-full" /><p className="text-sm text-gray-500 mt-1 text-center">{progress}%</p></div>)}
           </div>
